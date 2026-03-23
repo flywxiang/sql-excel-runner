@@ -1,0 +1,19 @@
+# 数据库配置
+database:
+  host: localhost
+  port: 3306
+  user: your_username
+  password: your_password
+  database: your_database
+  charset: utf8mb4
+
+# Excel配置
+excel:
+  template_dir: ./excel
+  output_dir: ./output
+  date_format: "%Y-%m-%d"
+
+# 日志配置
+logging:
+  level: INFO
+  file: ./logs/runner.log

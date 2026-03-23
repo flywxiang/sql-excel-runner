@@ -1,4 +1,4 @@
-"""Excel写入模块"""
+"""Excel写入模块 - 支持模板填充"""
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -17,32 +17,71 @@ def load_config():
         return yaml.safe_load(f)
 
 
-def write_with_template(df, template_path, output_path, sheet_name='Sheet1'):
+def write_to_excel(df, excel_path, sheet_name='一览表', start_col='E', start_row=4, 
+                   date_cell='B1', exec_date=None):
     """
-    使用模板写入Excel
-    df: 数据DataFrame
-    template_path: 模板文件路径
-    output_path: 输出文件路径
-    """
-    # 读取模板
-    wb = load_workbook(template_path)
-    ws = wb[sheet_name]
+    写入数据到现有Excel
     
-    # 找到数据开始的行（假设模板有标题行）
-    start_row = 1
-    for row in range(1, ws.max_row + 1):
-        if ws.cell(row=row, column=1).value is None:
-            start_row = row
-            break
-        start_row = row + 1
+    参数:
+        df: DataFrame数据
+        excel_path: Excel文件路径
+        sheet_name: Sheet名称
+        start_col: 数据起始列 (默认E)
+        start_row: 数据起始行 (默认4)
+        date_cell: 日期写入单元格 (默认B1)
+        exec_date: 执行日期时间
+    """
+    exec_date = exec_date or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # 加载现有Excel
+    wb = load_workbook(excel_path)
+    
+    # 获取或创建Sheet
+    if sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    else:
+        ws = wb.active
+        ws.title = sheet_name
+    
+    # 写入执行时间到B1
+    ws['B1'] = exec_date
+    ws['B1'].font = Font(bold=True, size=12)
+    
+    # 将列字母转为数字 (A=1, B=2, E=5, ...)
+    start_col_num = ord(start_col.upper()) - ord('A') + 1
+    
+    # 清空现有数据区域 (从起始位置开始)
+    # 计算数据占据的列范围
+    max_col = start_col_num + len(df.columns) - 1
+    for row in range(start_row, ws.max_row + 1):
+        for col in range(start_col_num, max_col + 1):
+            ws.cell(row=row, column=col).value = None
+    
+    # 写入表头 (如果从第4行开始，通常保留原有表头)
+    # 只写入数据，不写表头
     
     # 写入数据
-    for r_idx, row in enumerate(df.values, start=start_row):
-        for c_idx, value in enumerate(row, start=1):
-            ws.cell(row=r_idx, column=c_idx, value=value)
+    for r_idx, row_data in enumerate(df.values, start=start_row):
+        for c_idx, value in enumerate(row_data, start=start_col_num):
+            cell = ws.cell(row=r_idx, column=c_idx)
+            cell.value = value
+            
+            # 格式化数值
+            if pd.notna(value):
+                if isinstance(value, float):
+                    # 判断是否为百分比 (增长率列)
+                    col_name = df.columns[c_idx - start_col_num]
+                    if '增长率' in col_name:
+                        cell.number_format = '0.00%'
+                    else:
+                        cell.number_format = '#,##0.00'
+                elif isinstance(value, int):
+                    cell.number_format = '#,##0'
     
     # 保存
-    wb.save(output_path)
+    wb.save(excel_path)
+    print(f"数据已写入: {excel_path}")
+    return excel_path
 
 
 def write_simple(df, output_path, sheet_name='数据'):
@@ -105,7 +144,7 @@ def style_excel(output_path, sheet_name='数据'):
 
 def write_output(result_data, output_filename=None):
     """
-    生成输出文件
+    生成输出文件 (用于无模板情况)
     result_data: 字典，key为脚本名（不含.sql），value为DataFrame
     """
     config = load_config()
@@ -120,6 +159,6 @@ def write_output(result_data, output_filename=None):
     
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
         for sheet_name, df in result_data.items():
-            df.to_excel(writer, sheet_name=sheet_name[:31], index=False)  # Excel表名最长31字符
+            df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
     
     return output_path

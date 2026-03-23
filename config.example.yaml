@@ -2,16 +2,22 @@
 database:
   host: localhost
   port: 3306
-  user: your_username
-  password: your_password
-  database: your_database
+  user: root
+  password: ""
+  database: test_db
   charset: utf8mb4
 
 # Excel配置
 excel:
   template_dir: ./excel
   output_dir: ./output
-  date_format: "%Y-%m-%d"
+  date_format: "%Y%m%d"
+
+# 定时任务配置
+schedule:
+  enabled: false
+  day: mon          # mon/tue/wed/thu/fri/sat/sun
+  time: "09:00"     # HH:MM
 
 # 日志配置
 logging:
